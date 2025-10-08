@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Host Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-idle { background-color: #6c757d; }
+        .status-running { background-color: #28a745; animation: pulse 1.5s infinite; }
+        .status-error { background-color: #dc3545; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn:hover { opacity: 0.8; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-line {
+            margin-bottom: 4px;
+            word-wrap: break-word;
+        }
+        .log-error { color: #f48771; }
+        .log-warning { color: #dcdcaa; }
+        .log-success { color: #4ec9b0; }
+        
+        .env-display {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 GPU Training Host Dashboard</h1>
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>Training Control</h3>
+                <div id="status-display">
+                    <span class="status-indicator status-idle" id="status-indicator"></span>
+                    <span id="status-text">Idle</span>
+                </div>
+                <div id="current-progress" style="margin: 10px 0; font-style: italic; color: #666;"></div>
+                
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-primary" id="start-btn" onclick="startTraining()">
+                        🎯 Start Training
+                    </button>
+                    <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" disabled>
+                        🛑 Stop Training
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearLogs()">
+                        🗑️ Clear Logs
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Configuration</h3>
+                <div id="env-content" class="env-display">Loading...</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>📊 Training Logs</h3>
+            <div class="logs-container" id="logs-container">
+                <div class="log-line">Ready to start training...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        let trainingActive = false;
+        
+        // DOM elements
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const currentProgress = document.getElementById('current-progress');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const logsContainer = document.getElementById('logs-container');
+        const envContent = document.getElementById('env-content');
+        
+        // Socket event handlers
+        socket.on('log_update', function(data) {
+            addLogLine(data.message);
+        });
+        
+        socket.on('training_started', function() {
+            updateTrainingStatus(true);
+            addLogLine('Training started...', 'success');
+        });
+        
+        socket.on('training_stopped', function() {
+            updateTrainingStatus(false);
+            addLogLine('Training stopped.', 'warning');
+        });
+        
+        socket.on('training_complete', function() {
+            updateTrainingStatus(false);
+            addLogLine('Training completed!', 'success');
+        });
+        
+        socket.on('error', function(data) {
+            addLogLine('Error: ' + data.message, 'error');
+        });
+        
+        // Functions
+        function updateTrainingStatus(active) {
+            trainingActive = active;
+            
+            if (active) {
+                statusIndicator.className = 'status-indicator status-running';
+                statusText.textContent = 'Running';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                statusIndicator.className = 'status-indicator status-idle';
+                statusText.textContent = 'Idle';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+        
+        function addLogLine(message, type = '') {
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            if (type) logLine.classList.add('log-' + type);
+            
+            const timestamp = new Date().toLocaleTimeString();
+            logLine.textContent = `[${timestamp}] ${message}`;
+            
+            logsContainer.appendChild(logLine);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+        
+        function startTraining() {
+            socket.emit('start_training');
+        }
+        
+        function stopTraining() {
+            socket.emit('stop_training');
+        }
+        
+        function clearLogs() {
+            logsContainer.innerHTML = '<div class="log-line">Logs cleared.</div>';
+        }
+        
+        // Load initial status and environment
+        function loadStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateTrainingStatus(data.active);
+                    if (data.current_progress) {
+                        currentProgress.textContent = data.current_progress;
+                    }
+                });
+        }
+        
+        function loadEnvironment() {
+            fetch('/api/env')
+                .then(response => response.json())
+                .then(data => {
+                    envContent.textContent = data.env || 'No .env file found';
+                });
+        }
+        
+        // Initialize
+        loadStatus();
+        loadEnvironment();
+        
+        // Refresh status periodically
+        setInterval(loadStatus, 5000);
+    </script>
+</body>
+</html>

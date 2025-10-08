@@ -1,0 +1,81 @@
+# Terraform files
+training/terraform.tfvars
+training/terraform.tfstate
+training/terraform.tfstate.backup
+training/.terraform/
+training/.terraform.lock.hcl
+
+# Environment and configuration files
+host_app/.env
+.env
+.env.local
+.env.production
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+!*.pub
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+training_log.txt
+error_log.txt
+progress.txt
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# DigitalOcean CLI
+.do/
+
+# Backup files
+*.bak
+*.backup
