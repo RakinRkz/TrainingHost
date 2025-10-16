@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Real-time web interfaces (Streamlit and Flask)
+- Real-time web interfaces (Flask)
 - Environment variable configuration system
 - SSH automation for remote training execution
 - Comprehensive logging and progress tracking
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error handling and recovery mechanisms
 
 ### Changed
+- Streamlit web interface removed, focusing on Flask for better control
 - Enhanced training script with SSH capabilities
 - Improved Terraform configuration with outputs
 - Better progress tracking and status updates
@@ -34,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of TrainingHost
 - Basic Terraform configuration for DigitalOcean GPU droplets
 - Simple training script with countdown timer
-- Streamlit web interface foundation
+- Streamlit web interface removed, focusing on Flask
 - Environment configuration support
 - SSH key management for DigitalOcean
 - Real-time progress monitoring
@@ -51,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Infrastructure
 - **Cloud Provider**: DigitalOcean GPU droplets (H100 support)
 - **Orchestration**: Terraform for infrastructure as code
-- **Web Interfaces**: Streamlit (interactive) and Flask (traditional)
+- **Web Interfaces**: Flask (traditional)
 - **Monitoring**: Real-time log files and status updates
 - **Automation**: Bash scripts for complete lifecycle management
 
@@ -71,7 +72,7 @@ This is the initial release of TrainingHost, a complete GPU training automation 
 
 **What's New:**
 - Complete automation from infrastructure provisioning to training execution
-- Dual web interface options (Streamlit and Flask) for different use cases  
+- Flask web interface with real-time updates  
 - Real-time progress monitoring and logging
 - Secure SSH-based remote execution
 - Environment-driven configuration for easy customization
@@ -107,4 +108,4 @@ This is the initial release of TrainingHost, a complete GPU training automation 
 **Special Thanks:**
 - DigitalOcean for GPU infrastructure
 - Terraform community for infrastructure patterns
-- Streamlit team for the amazing web framework
+- Flask team for the web framework

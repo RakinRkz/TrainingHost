@@ -4,7 +4,7 @@ This project is a GPU training automation system built with Python, Terraform, a
 
 ## 🏗️ Project Architecture
 
-- **Backend**: Python with Streamlit/Flask web interfaces
+- **Backend**: Python with Flask web interfaces
 - **Infrastructure**: Terraform for DigitalOcean GPU droplets
 - **Orchestration**: Bash scripts for automation
 - **Monitoring**: Real-time log files and web dashboards
@@ -85,7 +85,6 @@ output "droplet_ip" {
 - Includes error handling and cleanup
 
 ### 2. Web Interfaces
-- **Streamlit** (`app.py`): Interactive dashboard with real-time updates
 - **Flask** (`flask_app.py`): Traditional web interface with AJAX
 - Both should provide: progress monitoring, log viewing, training controls
 
@@ -122,12 +121,6 @@ error_log.txt     # Error messages and debugging (appended)
 - `ERROR` - Something went wrong
 
 ## 🌐 Web Interface Guidelines
-
-### Streamlit Best Practices
-- Use `st.rerun()` for auto-refresh functionality
-- Implement proper state management with `st.session_state`
-- Use columns for layout organization
-- Include progress bars and status indicators
 
 ### Flask Best Practices
 - Use templates for HTML rendering

@@ -21,8 +21,7 @@ TrainingHost/
 ├── host_app/          # Web interface and main application
 │   ├── templates/     # Flask HTML templates
 │   │   └── index.html # Web interface template
-│   ├── app.py         # Streamlit web interface
-│   ├── flask_app.py   # Alternative Flask interface
+│   ├── flask_app.py   # Flask web interface
 │   ├── train.sh       # Main training orchestration script
 │   ├── start_web.sh   # Web interface launcher script
 │   ├── .env           # Configuration (GitHub repo, dataset, commands)
@@ -95,26 +94,16 @@ cd host_app
 # Option 1: Use the launcher script (easiest)
 ./start_web.sh
 
-# Option 2: Streamlit interface directly
-streamlit run app.py
-
-# Option 3: Flask interface directly
+# Option 2: Flask interface directly
 python flask_app.py
 
-# Option 4: Direct command line training
+# Option 3: Direct command line training
 ./train.sh
 ```
 
 ## 🖥️ Web Interface Features
 
-### Streamlit Interface (Default)
-- 📊 Real-time progress monitoring
-- 📈 Training metrics visualization
-- 🔄 Auto-refreshing status updates
-- 📋 Complete training logs
-- ⚡ Start/stop training controls
-
-### Flask Interface (Alternative)
+### Flask Interface
 - 🌐 Traditional web interface
 - 📱 Mobile-responsive design
 - 🔄 AJAX real-time updates

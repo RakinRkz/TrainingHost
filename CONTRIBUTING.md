@@ -92,13 +92,14 @@ DEBUG=1
 - **Import organization**: standard library, third-party, local imports
 
 ```python
+```python
 # Good example
 from pathlib import Path
 from typing import Optional
 import logging
 
-import streamlit as st
-from dotenv import load_dotenv
+from flask import Flask, render_template
+import flask_socketio
 
 from utils.helpers import update_progress
 
