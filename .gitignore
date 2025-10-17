@@ -79,3 +79,5 @@ progress.txt
 # Backup files
 *.bak
 *.backup
+/GLASS-new/
+host_app/progress.txt

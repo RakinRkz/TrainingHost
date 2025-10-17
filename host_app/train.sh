@@ -59,11 +59,11 @@ ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa_do_controller root@$DROPLET_IP 
     pip install -r requirements.txt
     
     # Run preprocessing
-    echo "Running preprocessing..."
-    python preprocessing/orchestrator.py \
-        --source raw-data/mvt/good-images \
-        --dataset custom \
-        --class_name mvt
+    # echo "Running preprocessing..."
+    # python preprocessing/orchestrator.py \
+    #     --source raw-data/mvt2/good-images \
+    #     --dataset custom \
+    #     --class_name mvt2
     
     # Make shell scripts executable
     echo "Making shell scripts executable..."
