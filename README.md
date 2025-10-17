@@ -6,10 +6,10 @@ A complete GPU training automation system that provisions DigitalOcean GPU dropl
 
 TrainingHost automatically:
 - 🏗️ Provisions GPU droplets via Terraform
-- 📦 Clones your GitHub repository
-- 📊 Downloads datasets from any URL
+- 📦 Copies GLASS-new folder to GPU server
 - 🔄 Executes training commands
 - 📱 Provides real-time web monitoring
+- 📋 Copies back the folder with trained parameters, models back to host server
 - 🧹 Auto-destroys resources after completion
 
 ## 🏗️ Architecture
