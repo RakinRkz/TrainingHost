@@ -92,6 +92,112 @@
             gap: 20px;
         }
         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .class-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .class-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .class-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .class-item.selected {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .training-item {
+            padding: 12px;
+            margin: 8px 0;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .training-item:hover {
+            background-color: #e7f3ff;
+        }
+        
+        .training-item.selected {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .training-item-name {
+            font-weight: 500;
+        }
+        
+        .training-item-status {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .stop-btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .stop-btn-small:hover {
+            background-color: #c82333;
+        }
+        
         @media (max-width: 768px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -118,9 +224,6 @@
                     <button class="btn btn-primary" id="start-btn" onclick="startTraining()">
                         🎯 Start Training
                     </button>
-                    <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" disabled>
-                        🛑 Stop Training
-                    </button>
                     <button class="btn btn-secondary" onclick="clearLogs()">
                         🗑️ Clear Logs
                     </button>
@@ -128,8 +231,10 @@
             </div>
             
             <div class="card">
-                <h3>Configuration</h3>
-                <div id="env-content" class="env-display">Loading...</div>
+                <h3>Active Trainings</h3>
+                <div id="activeTrainings" style="min-height: 100px;">
+                    <div style="color: #999; padding: 20px; text-align: center;">No active trainings</div>
+                </div>
             </div>
         </div>
         
@@ -141,38 +246,88 @@
         </div>
     </div>
 
+    <!-- Class Selection Modal -->
+    <div id="classModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Select Class for Training</div>
+            <div class="modal-body">
+                <div class="class-list" id="classList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeClassModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="startTrainingWithClass()" id="confirmBtn" disabled>Start Training</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const socket = io();
         
-        let trainingActive = false;
+        let activeTrainings = {};  // { className: { process_id, started_at } }
+        let selectedTrainingClass = null;
+        let logsPerClass = {};  // Store separate logs per class: { className: [messages] }
         
         // DOM elements
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
         const currentProgress = document.getElementById('current-progress');
         const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
         const logsContainer = document.getElementById('logs-container');
-        const envContent = document.getElementById('env-content');
+        const activeTrainingsDiv = document.getElementById('activeTrainings');
+        const classModal = document.getElementById('classModal');
+        const classList = document.getElementById('classList');
+        const confirmBtn = document.getElementById('confirmBtn');
         
         // Socket event handlers
         socket.on('log_update', function(data) {
-            addLogLine(data.message);
+            const className = data.class_name;
+            const message = data.message;
+            const isHtml = data.is_html || false;
+            
+            // Store log per class
+            if (!logsPerClass[className]) {
+                logsPerClass[className] = [];
+            }
+            logsPerClass[className].push({message: message, isHtml: isHtml});
+            
+            // Only display if this is the selected training or if no training is selected yet
+            if (!selectedTrainingClass) {
+                // Show all logs mixed
+                addLogLine(`[${className}] ${message}`, '', isHtml);
+            } else if (className === selectedTrainingClass) {
+                // Show only this class's logs
+                addLogLine(message, '', isHtml);
+            }
         });
         
-        socket.on('training_started', function() {
-            updateTrainingStatus(true);
-            addLogLine('Training started...', 'success');
+        socket.on('training_started', function(data) {
+            const className = data.class_name;
+            activeTrainings[className] = { started_at: new Date() };
+            if (!logsPerClass[className]) {
+                logsPerClass[className] = [];
+            }
+            updateActiveTrainings();
+            if (!selectedTrainingClass) {
+                addLogLine(`Training started for: ${className}`, 'success');
+            }
         });
         
-        socket.on('training_stopped', function() {
-            updateTrainingStatus(false);
-            addLogLine('Training stopped.', 'warning');
+        socket.on('training_completed', function(data) {
+            const className = data.class_name;
+            if (!selectedTrainingClass) {
+                addLogLine(`Training completed for: ${className}`, 'success');
+            }
+            delete activeTrainings[className];
+            updateActiveTrainings();
         });
         
-        socket.on('training_complete', function() {
-            updateTrainingStatus(false);
-            addLogLine('Training completed!', 'success');
+        socket.on('training_stopped', function(data) {
+            const className = data.class_name;
+            if (!selectedTrainingClass) {
+                addLogLine(`Training stopped for: ${className}`, 'warning');
+            }
+            delete activeTrainings[className];
+            updateActiveTrainings();
         });
         
         socket.on('error', function(data) {
@@ -180,72 +335,221 @@
         });
         
         // Functions
-        function updateTrainingStatus(active) {
-            trainingActive = active;
-            
-            if (active) {
-                statusIndicator.className = 'status-indicator status-running';
-                statusText.textContent = 'Running';
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-            } else {
+        function updateActiveTrainings() {
+            if (Object.keys(activeTrainings).length === 0) {
+                activeTrainingsDiv.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">No active trainings</div>';
                 statusIndicator.className = 'status-indicator status-idle';
                 statusText.textContent = 'Idle';
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
+                return;
+            }
+            
+            statusIndicator.className = 'status-indicator status-running';
+            statusText.textContent = `Running (${Object.keys(activeTrainings).length})`;
+            
+            activeTrainingsDiv.innerHTML = '';
+            Object.keys(activeTrainings).forEach(className => {
+                const trainingItem = document.createElement('div');
+                trainingItem.className = 'training-item';
+                if (selectedTrainingClass === className) {
+                    trainingItem.classList.add('selected');
+                }
+                
+                const startedAt = activeTrainings[className].started_at;
+                const elapsed = Math.floor((new Date() - startedAt) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                
+                trainingItem.innerHTML = `
+                    <div onclick="selectTraining('${className}')" style="flex: 1;">
+                        <div class="training-item-name">📦 ${className}</div>
+                        <div class="training-item-status">Running for ${timeStr}</div>
+                    </div>
+                    <button class="stop-btn-small" onclick="stopTrainingClass('${className}')">Stop</button>
+                `;
+                
+                activeTrainingsDiv.appendChild(trainingItem);
+            });
+        }
+        
+        function selectTraining(className) {
+            selectedTrainingClass = className;
+            updateActiveTrainings();
+            // Clear logs container and show logs for selected training
+            logsContainer.innerHTML = '';
+            if (logsPerClass[className]) {
+                logsPerClass[className].forEach(logEntry => {
+                    addLogLine(logEntry.message, '', logEntry.isHtml);
+                });
+            } else {
+                addLogLine('No logs yet for this training...');
+            }
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+        
+        function stopTrainingClass(className) {
+            if (confirm(`Stop training for ${className}?`)) {
+                socket.emit('stop_training', { class_name: className });
             }
         }
         
-        function addLogLine(message, type = '') {
+        function addLogLine(message, type = '', isHtml = false) {
             const logLine = document.createElement('div');
             logLine.className = 'log-line';
             if (type) logLine.classList.add('log-' + type);
             
-            const timestamp = new Date().toLocaleTimeString();
-            logLine.textContent = `[${timestamp}] ${message}`;
+            // Only add timestamp if not already in message
+            if (isHtml) {
+                logLine.innerHTML = message;
+            } else {
+                if (!message.includes('[')) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    logLine.textContent = `[${timestamp}] ${message}`;
+                } else {
+                    logLine.textContent = message;
+                }
+            }
             
             logsContainer.appendChild(logLine);
             logsContainer.scrollTop = logsContainer.scrollHeight;
         }
         
         function startTraining() {
-            socket.emit('start_training');
+            // Load available classes and show modal
+            loadAvailableClasses();
         }
         
-        function stopTraining() {
-            socket.emit('stop_training');
+        function loadAvailableClasses() {
+            fetch('/api/classes')
+                .then(response => response.json())
+                .then(data => {
+                    classList.innerHTML = '';
+                    let selectedClass = null;
+                    confirmBtn.disabled = true;
+                    
+                    if (data.classes.length === 0) {
+                        classList.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No classes found in raw-data folder</div>';
+                        return;
+                    }
+                    
+                    data.classes.forEach(className => {
+                        const isActive = Object.keys(activeTrainings).includes(className);
+                        const item = document.createElement('div');
+                        item.className = 'class-item' + (isActive ? ' disabled' : '');
+                        item.style.opacity = isActive ? '0.5' : '1';
+                        item.style.cursor = isActive ? 'not-allowed' : 'pointer';
+                        item.textContent = className + (isActive ? ' (already training)' : '');
+                        if (!isActive) {
+                            item.onclick = () => selectClassForTraining(className, item);
+                        }
+                        classList.appendChild(item);
+                    });
+                    
+                    classModal.style.display = 'block';
+                });
+        }
+        
+        function selectClassForTraining(className, element) {
+            // Remove previous selection
+            document.querySelectorAll('.class-item:not(.disabled)').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Select new class
+            selectedClass = className;
+            element.classList.add('selected');
+            confirmBtn.disabled = false;
+        }
+        
+        function closeClassModal() {
+            classModal.style.display = 'none';
+            selectedClass = null;
+        }
+        
+        let selectedClass = null;
+        
+        function startTrainingWithClass() {
+            if (!selectedClass) {
+                alert('Please select a class');
+                return;
+            }
+            
+            // Store the class name before closing modal
+            const classToTrain = selectedClass;
+            console.log('Starting training with class:', classToTrain);
+            closeClassModal();
+            
+            // Use POST API instead of Socket.IO
+            fetch('/api/start-training', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ class_name: classToTrain })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLogLine(data.message, 'success');
+                    activeTrainings[classToTrain] = { started_at: new Date() };
+                    logsPerClass[classToTrain] = [];
+                    selectTraining(classToTrain);  // Auto-select the new training
+                    updateActiveTrainings();
+                } else {
+                    addLogLine('Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                addLogLine('Error: Failed to start training', 'error');
+            });
         }
         
         function clearLogs() {
+            if (selectedTrainingClass) {
+                logsPerClass[selectedTrainingClass] = [];
+            }
             logsContainer.innerHTML = '<div class="log-line">Logs cleared.</div>';
         }
         
-        // Load initial status and environment
+        // Load initial status
         function loadStatus() {
             fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
-                    updateTrainingStatus(data.active);
-                    if (data.current_progress) {
-                        currentProgress.textContent = data.current_progress;
+                    if (data.trainings_data) {
+                        // Only update trainings that are still running
+                        // Preserve start times from backend
+                        const newActiveTrainings = {};
+                        Object.keys(data.trainings_data).forEach(className => {
+                            const trainData = data.trainings_data[className];
+                            // Use existing start time if available, otherwise use backend time
+                            if (activeTrainings[className]) {
+                                newActiveTrainings[className] = activeTrainings[className];
+                            } else {
+                                newActiveTrainings[className] = { 
+                                    started_at: new Date(trainData.started_at) 
+                                };
+                            }
+                        });
+                        activeTrainings = newActiveTrainings;
+                        updateActiveTrainings();
                     }
                 });
         }
         
-        function loadEnvironment() {
-            fetch('/api/env')
-                .then(response => response.json())
-                .then(data => {
-                    envContent.textContent = data.env || 'No .env file found';
-                });
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == classModal) {
+                closeClassModal();
+            }
         }
         
         // Initialize
         loadStatus();
-        loadEnvironment();
         
-        // Refresh status periodically
-        setInterval(loadStatus, 5000);
+        // Refresh status periodically (every 2 seconds for faster updates)
+        setInterval(loadStatus, 2000);
     </script>
 </body>
 </html>

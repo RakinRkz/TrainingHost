@@ -81,3 +81,5 @@ progress.txt
 *.backup
 /GLASS-new/
 host_app/progress.txt
+*/batch_*/*
+*log*

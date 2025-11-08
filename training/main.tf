@@ -24,7 +24,7 @@ resource "digitalocean_ssh_key" "controller" {
 
 resource "digitalocean_droplet" "gpu_training" {
   name     = "gpu-training-droplet"
-  region   = "ams3"  # Amsterdam
+  region   = "nyc2"
   size     = "gpu-h100x1-80gb"
   image    = "gpu-h100x1-base"
   ssh_keys = [digitalocean_ssh_key.controller.id]
