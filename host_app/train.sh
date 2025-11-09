@@ -83,8 +83,35 @@ ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa_do_controller root@$DROPLET_IP 
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Installing system packages..."
     apt-get install -y python3-pip python3-venv git wget unzip
     
+    # Verify and initialize CUDA
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Checking CUDA and GPU availability..."
+    if command -v nvidia-smi &> /dev/null; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] ✓ nvidia-smi found"
+        nvidia-smi
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] ⚠ nvidia-smi not found, installing CUDA drivers..."
+        apt-get install -y nvidia-driver-550 nvidia-utils
+        modprobe nvidia
+    fi
+    
+    # Verify CUDA libraries are accessible
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Verifying CUDA library paths..."
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=\$CUDA_HOME/bin:\$PATH
+    
     # Navigate to the GLASS-new folder
     cd /root/GLASS-new
+    
+    # Set CUDA environment BEFORE creating venv
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=\$CUDA_HOME/bin:\$PATH
+    export CUDA_LAUNCH_BLOCKING=1
+    
+    # Verify CUDA is accessible before venv creation
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Verifying CUDA accessibility..."
+    ls -la /usr/local/cuda/lib64/ | head -5
     
     # Create virtual environment
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Creating virtual environment..."
@@ -94,9 +121,24 @@ ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa_do_controller root@$DROPLET_IP 
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Activating virtual environment..."
     source .venv/bin/activate
     
-    # Install Python requirements
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Installing Python requirements..."
-    pip install -r requirements.txt
+    # Reinstall CUDA environment variables in activated venv
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=\$CUDA_HOME/bin:\$PATH
+    export CUDA_LAUNCH_BLOCKING=1
+    
+    # Upgrade pip and install wheel
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Upgrading pip and installing build tools..."
+    pip install --upgrade pip setuptools wheel
+    
+    # Install Python requirements with explicit CUDA 12.1 support
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Installing Python requirements with CUDA 12.1 PyTorch..."
+    pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cu121
+    pip install -r requirements.txt --no-deps
+    
+    # Install remaining requirements without forcing torch versions
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Installing remaining dependencies..."
+    pip install click numpy pandas scipy tqdm opencv-python pillow scikit-image imgaug scikit-learn timm onnx onnxruntime-gpu onnxsim matplotlib tensorboard openpyxl pyserial psutil reportlab cuda-python
     
     # Run preprocessing
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Running preprocessing for $CLASS_NAME..."
@@ -109,9 +151,41 @@ ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa_do_controller root@$DROPLET_IP 
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Making shell scripts executable..."
     chmod +x ./shell/*
     
-    # Run the training script
+    # Ensure CUDA environment is set up before training
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:\$LD_LIBRARY_PATH
+    export CUDA_HOME=/usr/local/cuda
+    export PATH=\$CUDA_HOME/bin:\$PATH
+    export CUDA_LAUNCH_BLOCKING=1
+    
+    # Detailed CUDA verification before training
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Detailed CUDA verification before training..."
+    python << 'PYTHON_EOF'
+import sys
+import os
+print(f"Python executable: {sys.executable}")
+print(f"Python version: {sys.version}")
+print(f"CUDA_HOME: {os.environ.get('CUDA_HOME', 'NOT SET')}")
+print(f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'NOT SET')}")
+
+try:
+    import torch
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"PyTorch CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device count: {torch.cuda.device_count()}")
+        print(f"CUDA device name: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA device capability: {torch.cuda.get_device_capability(0)}")
+        print("✓ CUDA is properly configured!")
+    else:
+        print("✗ CUDA not detected. This may cause training to fail.")
+except Exception as e:
+    print(f"✗ Error during CUDA verification: {e}")
+    sys.exit(1)
+PYTHON_EOF
+    
+    # Run the training script with library preload
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [REMOTE] Starting training for $CLASS_NAME..."
-    ./shell/run-custom-training.sh "$CLASS_NAME"
+    LD_PRELOAD=/usr/local/cuda/lib64/libcudart.so.12 ./shell/run-custom-training.sh "$CLASS_NAME"
     
     # Check training exit status
     if [ \$? -eq 0 ]; then

@@ -83,3 +83,4 @@ progress.txt
 host_app/progress.txt
 */batch_*/*
 *log*
+*/*_terraform/*
